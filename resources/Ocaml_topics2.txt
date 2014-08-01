@@ -1,0 +1,230 @@
+Introduction to OCaml (part 2)
+
+- Miscellaneous (http://caml.inria.fr/pub/docs/manual-ocaml/libref/Pervasives.html)
+	- String concatenation
+		val (^) : string -> string -> string
+		"Hello " ^ " world";;
+	- String conversion functions
+		string_of_int 1;;
+	- List concatenation.
+		[1;2;3]@[4;5;6];;
+	- Output functions
+		print_string "Hello";;
+		
+	- Accessing the element of a tuple
+		let t1 = (3,5);; 
+	    match t1 with
+		|(3, _ ) -> true
+		|(_, 3) -> true
+		|(_,_) -> false
+	    ;;
+	    val fst : 'a * 'b -> 'a
+	    val snd : 'a * 'b -> 'b
+	    if (fst t1 == 3) || (snd t1 ==3) then true else false;;
+		
+	 - Casting from float to integer and reverse
+		let af = 1.1;;
+		let intl = [1;af;];;	
+		 - Is af implicitly converted to int? No
+		int_of_float : float -> int
+		let intl = [1;int_of_float af;];;	
+		
+		let ai = 1;;
+		let fl = [1.1;ai;];;
+		val float_of_int : int -> float
+		let fl = [1.1;float_of_int ai;];; 
+		
+	- Random
+		Random.init 70;;
+		Random.bits ();;
+		  - returns 30 random bits in a nonnegative integer.
+		Random.bool ();;
+		Random.float 6576746766989.1;;
+		Random.int 1000989;;
+		
+- Representing undefined values? 
+	(a little like NULL in C, but in a type and memory safe way)
+	
+	let x = Some 1;;
+	val x : int option = Some 1
+	
+	let rec find p ls = 
+		match ls with 
+		| [] -> None
+		| x::xs -> 
+			if (p x) then Some x 
+			else (find p xs)
+	;;
+	find (fun x -> (x>5)) [1;2;3;4];;
+	find (fun x -> (x>5)) [1;2;3;4;6;];;
+	
+	let rec findWithFail p ls = 
+		match ls with 
+		| [] -> failwith "No such element"
+		| x::xs -> 
+			if (p x) then x
+			else (findWithFail p xs)
+	;;
+	findWithFail (fun x -> (x>5)) [1;2;3;4];;
+	
+- Exceptions
+	- Raising Exceptions
+	   exception FindException;;
+	
+	   let rec findWithExcept p ls = 
+		 match ls with 
+		 | [] -> raise FindException
+		 | x::xs -> 
+			if (p x) then x
+			else (findWithExcept p xs)
+		;;
+	
+	- Catching Exceptions
+		let exists p ls =
+		  try 
+			 findWithExcept p ls; true
+		   with FindException -> false
+		   ;;
+		exists (fun x -> (x>5)) [1;2;3;4];;
+
+- Loops		
+	- For Loop
+	for i=1 to 10 
+	do 
+		print_int i; print_string " " 
+	done;;
+
+	- While Loop
+	let i = ref 1 
+	in while !i < 11  do
+		print_int !i ;
+		print_string " " ;
+		i := !i+1
+	done ;;
+	
+	- Recursion					
+	let rec loop i = if (i<11) 
+		then (print_int i; print_string " " ; loop (i+1);)
+		else ()
+	;;
+		
+- Dangers of side effects
+
+	let a = ref 0;;
+	let inc = a := !a + 1; string_of_int !a;;
+	let dec = a := !a - 1; string_of_int !a;;
+
+	inc ^ dec;;
+	inc ^ inc ^ dec;;
+		- What does the following code output?
+	
+	let a = ref 0;;	
+	let inc() = a := !a +1; (string_of_int !a);;
+	let dec() = a := !a -1; (string_of_int !a);;
+
+	- What does the following code output?
+		inc(print_string "aaa");;
+		let a = ref 0;;
+		inc();;
+		print_string (inc() ^ inc() ^ dec());;
+		let a = ref 0;;
+		
+	- Left to right evaluation:	
+		print_string (inc()); print_string (inc()); print_string (dec());;
+		let firsti = inc() in 
+		let seci = inc() in
+		let deci = dec() in 
+			firsti ^ seci ^ deci;;
+			
+- Compiling Ocaml code
+	- Simple Hello World Program
+	hello.ml
+	  print_string "Hello World"
+	
+	$ ocamlc -o hello hello.ml
+	$ ./hello
+	
+	- Factorial Program
+	fact.ml
+	  let rec factorial n =
+	    if n < 2 then 1 else n*(factorial(n-1));;
+	  
+	  let _ =
+		begin
+		 let nfactorial = int_of_string Sys.argv.(1) in
+		 print_int(factorial nfactorial);
+		 print_newline();
+		 exit 0;
+		end
+
+	ocamlc -o fact fact.ml
+	$ ./fact 10
+	
+	make.sh
+	  ocamlc -c hello.ml
+	  ocamlc -c fact.ml
+	  ocamlc -o res hello.cmo fact.cmo
+	$ make.sh
+	$ ./res 10
+	
+- Ide
+	OcaIDE
+	Emacs
+	
+(** Other Topics **)
+- Lazy evaluation
+	List.hd [];;
+		- Exception: Failure "hd"
+	if true then 1 else List.hd [];;
+		- List.hd [] is not evaluated in the if expression
+		- the branch expressions are lazily evaluated i.e. only when needed
+	
+	let ourIf e e1 e2 = match e with true -> e1 | false -> e2;;
+	ourIf true 1 (List.hd []);;
+		- What happens? Why? Ans: The arguments of functions are evaluated eagerly
+	      Ocaml uses a call by value discipline. 
+		
+	let ourFuncIf e e1 e2 = match e with true -> e1() | false -> e2();;
+	ourFuncIf true (fun () -> 1) (fun () -> List.hd []);;
+		- What happens? Why? Ans: Function bodies are evaluated lazily. Only when applied.
+		
+- Streams
+	type 'a list = Nil | Cons of 'a * 'a list;;
+	
+	- Creating Streams
+	  Infinite list? Ans: By creating the tail only when we need it.
+	  type 'a stream = Nil | Cons of 'a * (unit -> 'a stream);;
+	
+	  let rec (ones : int stream) = Cons (1, fun () -> ones);;
+	  let rec from (n : int) : int stream =
+		Cons (n, fun () -> from (n + 1));;
+	  let naturals = from 0;;
+
+	  let fib1 : int stream =
+	  let rec fibgen (a : int) (b : int) : int stream =
+		Cons(a, fun () -> fibgen b (a + b))
+	  in fibgen 1 1;;
+	
+	-Functions on streams
+	  let hds (s: 'a stream) =
+		match s with
+		Nil -> failwith "hd"
+		| Cons (x, _) -> x
+		;;
+  
+	  let tls (s : 'a stream) : 'a stream =
+		match s with
+		Nil -> failwith "tl"
+		| Cons (_, g) -> g () 
+	  ;;
+  
+	  let rec take (s : 'a stream) (n : int) =
+		  if (n<=0) then [] else
+		  ( match s with
+			Nil -> []
+		   | _ -> hds s::take (tls s) (n - 1)
+		  )
+		;;
+	
+	take fib1 10;;
+	hds ( tls ones);;
